@@ -6,7 +6,7 @@ tests_require = install_requires + ['nose']
 
 setup(
     name="tasklocals",
-    version="0.1",
+    version="0.2",
     author = "Vladimir Kryachko",
     author_email = "v.kryachko@gmail.com",
     description = "Task locals for Tulip/asyncio",
