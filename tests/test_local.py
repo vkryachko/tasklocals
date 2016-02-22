@@ -2,7 +2,7 @@ import unittest
 import gc
 import asyncio
 import asyncio.test_utils
-from tasklocals import local
+from tasklocals import local, NoTaskError
 
 
 class LocalTests(unittest.TestCase):
@@ -66,7 +66,7 @@ class LocalTests(unittest.TestCase):
         mylocal = local(loop=self.loop)
         try:
             mylocal.foo = 1
-            self.fail("RuntimeError has not been raised when tryint to use local object outside of a Task")
-        except RuntimeError:
+            self.fail("NoTaskError has not been raised when tryint to use local object outside of a Task")
+        except NoTaskError:
             pass
 

@@ -4,7 +4,12 @@ from contextlib import contextmanager
 from weakref import ref
 import asyncio
 
-__all__ = ['local']
+__all__ = ['local', 'NoTaskError']
+
+
+class NoTaskError(RuntimeError):
+    pass
+
 
 class _localimpl:
     """A class managing task-local dicts"""
@@ -26,7 +31,7 @@ class _localimpl:
         defined."""
         task = asyncio.Task.current_task(loop=self._loop)
         if task is None:
-            raise RuntimeError("No task is currently running")
+            raise NoTaskError("No task is currently running")
         return self.dicts[id(task)][1]
 
     def create_dict(self):
@@ -35,7 +40,7 @@ class _localimpl:
         key = self.key
         task = asyncio.Task.current_task(loop=self._loop)
         if task is None:
-            raise RuntimeError("No task is currently running")
+            raise NoTaskError("No task is currently running")
         idt = id(task)
         def local_deleted(_, key=key):
             # When the localimpl is deleted, remove the task attribute.
@@ -58,7 +63,7 @@ class _localimpl:
 
 
 @contextmanager
-def _patch(self):
+def _patch(self, strict=True):
     impl = object.__getattribute__(self, '_local__impl')
     try:
         dct = impl.get_dict()
@@ -66,8 +71,13 @@ def _patch(self):
         dct = impl.create_dict()
         args, kw = impl.localargs
         self.__init__(*args, **kw)
+    except NoTaskError:
+        if strict:
+            raise
+        dct = {}
     object.__setattr__(self, '__dict__', dct)
     yield
+
 
 class local:
     __slots__ = '_local__impl', '__dict__'
