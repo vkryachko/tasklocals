@@ -6,6 +6,8 @@ import asyncio
 
 __all__ = ['local', 'NoTaskError']
 
+_default_local_dct = dict()
+
 
 class NoTaskError(RuntimeError):
     pass
@@ -75,7 +77,7 @@ def _patch(self):
     except NoTaskError:
         if strict:
             raise
-        dct = {}
+        dct = _default_local_dct
     object.__setattr__(self, '__dict__', dct)
     yield
 
