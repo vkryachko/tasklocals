@@ -63,8 +63,9 @@ class _localimpl:
 
 
 @contextmanager
-def _patch(self, strict=True):
+def _patch(self):
     impl = object.__getattribute__(self, '_local__impl')
+    strict = object.__getattribute__(self, '_strict')
     try:
         dct = impl.get_dict()
     except KeyError:
@@ -80,15 +81,16 @@ def _patch(self, strict=True):
 
 
 class local:
-    __slots__ = '_local__impl', '__dict__'
+    __slots__ = '_local__impl', '__dict__', '_strict'
 
-    def __new__(cls, *args, loop=None, **kw):
+    def __new__(cls, *args, loop=None, strict=True, **kw):
         if (args or kw) and (cls.__init__ is object.__init__):
             raise TypeError("Initialization arguments are not supported")
         self = object.__new__(cls)
         impl = _localimpl(loop=loop)
         impl.localargs = (args, kw)
         object.__setattr__(self, '_local__impl', impl)
+        object.__setattr__(self, '_strict', strict)
         return self
 
     def __getattribute__(self, name):
