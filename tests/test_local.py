@@ -2,7 +2,7 @@ import unittest
 import gc
 import asyncio
 import asyncio.test_utils
-from tasklocals import local
+from tasklocals import local, NoTaskError
 
 
 class LocalTests(unittest.TestCase):
@@ -16,8 +16,8 @@ class LocalTests(unittest.TestCase):
         self.loop.close()
         gc.collect()
 
-    def test_local(self):
-        mylocal = local(loop=self.loop)
+    def test_local(self, strict=True):
+        mylocal = local(loop=self.loop, strict=strict)
 
         log1 = []
         log2 = []
@@ -62,11 +62,20 @@ class LocalTests(unittest.TestCase):
         # ensure all task local values have been properly cleaned up
         self.assertEqual(object.__getattribute__(mylocal, '_local__impl').dicts, {})
 
+    def test_local_non_strict_mode(self):
+        self.test_local(strict=False)
+
     def test_local_outside_of_task(self):
         mylocal = local(loop=self.loop)
         try:
             mylocal.foo = 1
-            self.fail("RuntimeError has not been raised when tryint to use local object outside of a Task")
-        except RuntimeError:
+            self.fail("NoTaskError has not been raised when tryint to use local object outside of a Task")
+        except NoTaskError:
             pass
 
+    def test_local_outside_of_task_non_strict_mode(self):
+        mylocal = local(loop=self.loop, strict=False)
+        try:
+            mylocal.foo = 1
+        except NoTaskError:
+            self.fail("NoTaskError has been raised when tryint to use non-strict local object outside of a Task")

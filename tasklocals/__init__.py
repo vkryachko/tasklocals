@@ -4,7 +4,14 @@ from contextlib import contextmanager
 from weakref import ref
 import asyncio
 
-__all__ = ['local']
+__all__ = ['local', 'NoTaskError']
+
+_default_local_dct = dict()
+
+
+class NoTaskError(RuntimeError):
+    pass
+
 
 class _localimpl:
     """A class managing task-local dicts"""
@@ -26,7 +33,7 @@ class _localimpl:
         defined."""
         task = asyncio.Task.current_task(loop=self._loop)
         if task is None:
-            raise RuntimeError("No task is currently running")
+            raise NoTaskError("No task is currently running")
         return self.dicts[id(task)][1]
 
     def create_dict(self):
@@ -35,7 +42,7 @@ class _localimpl:
         key = self.key
         task = asyncio.Task.current_task(loop=self._loop)
         if task is None:
-            raise RuntimeError("No task is currently running")
+            raise NoTaskError("No task is currently running")
         idt = id(task)
         def local_deleted(_, key=key):
             # When the localimpl is deleted, remove the task attribute.
@@ -60,25 +67,32 @@ class _localimpl:
 @contextmanager
 def _patch(self):
     impl = object.__getattribute__(self, '_local__impl')
+    strict = object.__getattribute__(self, '_strict')
     try:
         dct = impl.get_dict()
     except KeyError:
         dct = impl.create_dict()
         args, kw = impl.localargs
         self.__init__(*args, **kw)
+    except NoTaskError:
+        if strict:
+            raise
+        dct = _default_local_dct
     object.__setattr__(self, '__dict__', dct)
     yield
 
-class local:
-    __slots__ = '_local__impl', '__dict__'
 
-    def __new__(cls, *args, loop=None, **kw):
+class local:
+    __slots__ = '_local__impl', '__dict__', '_strict'
+
+    def __new__(cls, *args, loop=None, strict=True, **kw):
         if (args or kw) and (cls.__init__ is object.__init__):
             raise TypeError("Initialization arguments are not supported")
         self = object.__new__(cls)
         impl = _localimpl(loop=loop)
         impl.localargs = (args, kw)
         object.__setattr__(self, '_local__impl', impl)
+        object.__setattr__(self, '_strict', strict)
         return self
 
     def __getattribute__(self, name):
